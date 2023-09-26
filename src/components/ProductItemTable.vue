@@ -1,169 +1,101 @@
 <script setup>
 import axios from "axios";
-import { reactive } from "vue";
-// import { Subject } from "rxjs";
-// import { debounceTime, distinctUntilChanged, switchMap } from "rxjs/operators";
+import { onMounted, reactive, ref } from "vue";
+
+const tableRef = ref();
 
 const state = reactive({
-  search: "df",
-  items: [
-    {
-      id: 1,
-      name: "tushar",
-      price: 50,
-      description: "done dgfs",
-      category: "all ctg",
-      stock_quantity: 20,
-      manufacture_date: "20/8/2020",
-    },
-    {
-      id: 2,
-      name: "John",
-      price: 45,
-      description: "Lorem ipsum",
-      category: "electronics",
-      stock_quantity: 15,
-      manufacture_date: "10/5/2021",
-    },
-    {
-      id: 3,
-      name: "Alice",
-      price: 30,
-      description: "Sample description",
-      category: "clothing",
-      stock_quantity: 25,
-      manufacture_date: "5/3/2019",
-    },
-  ],
-  pagination: {
-    sortBy: "desc",
-    descending: false,
-    page: 1,
-    rowsPerPage: 4,
-  },
+  search: "",
+  items: [],
   loading: false,
+  pagination: {
+    sortBy: "id",
+    descending: false,
+    page: 0,
+    rowsPerPage: 10,
+    rowsNumber: 10,
+  },
   columns: [
     {
       name: "id",
       required: true,
-      label: "ID",
+      label: "Id",
       align: "left",
-      field: "id",
+      field: (row) => row.id,
+      format: (val) => val,
       sortable: true,
     },
     {
       name: "name",
-      required: true,
+      align: "center",
       label: "Name",
-      align: "left",
       field: "name",
       sortable: true,
     },
     {
       name: "price",
-      required: true,
+      align: "center",
       label: "Price",
-      align: "left",
       field: "price",
       sortable: true,
     },
     {
       name: "description",
-      required: true,
+      align: "center",
       label: "Description",
-      align: "left",
       field: "description",
       sortable: true,
     },
     {
+      name: "manufactureDate",
+      align: "center",
+      label: "ManufactureDate",
+      field: "manufactureDate",
+      sortable: true,
+    },
+    {
+      name: "stockQuantity",
+      align: "center",
+      label: "StockQuantity",
+      field: "stockQuantity",
+      sortable: true,
+    },
+    {
       name: "category",
-      required: true,
+      align: "center",
       label: "Category",
-      align: "left",
       field: "category",
-      sortable: true,
-    },
-    {
-      name: "stock_quantity",
-      required: true,
-      label: "Stock quantity",
-      align: "left",
-      field: "stock_quantity",
-      sortable: true,
-    },
-    {
-      name: "manufacture_date",
-      required: true,
-      label: "Manufacture date",
-      align: "left",
-      field: "manufacture_date",
       sortable: true,
     },
   ],
 });
-// const searchInput$ = new Subject();
 
-// searchInput$
-//   .pipe(
-//     debounceTime(300),
-//     distinctUntilChanged(),
-//     switchMap((searchTerm) => {
-//       return axios.get(
-//         `https://8ca4-117-247-48-188.ngrok-free.app/item/search`,
-//         {
-//           params: {
-//             name: searchTerm,
-//             page: state.pagination.page,
-//             // rowsPerPage: state.pagination.rowsPerPage,
-//             // sortBy: state.pagination.sortBy,
-//             // descending: state.pagination.descending,
-//           },
-//         }
-//       );
-//     })
-//   )
-// .subscribe((response) => {
-//   state.items = response.data;
-//   state.loading = false;
-// });
+onMounted(() => {
+  tableRef.value.requestServerInteraction();
+});
 
-// watch(
-//   () => state.search,
-//   (newSearchTerm) => {
-//     state.loading = true;
-//     searchInput$.next(newSearchTerm);
-//   }
-// );
-// onMounted(() => {
-//   searchInput$.next(state.search);
-// });
-const searchItems = async (data) => {
+const searchItems = async (props) => {
   state.loading = true;
-  console.log(data);
   try {
-    const response = axios.get(
-      `https://8ca4-117-247-48-188.ngrok-free.app/item/search`,
-      {
-        params: {
-          name: searchTerm,
-          page: state.pagination.page,
-          // rowsPerPage: state.pagination.rowsPerPage,
-          // sortBy: state.pagination.sortBy,
-          // descending: state.pagination.descending,
-        },
-      }
-    );
-    const response = await axios.get(
-      "https://jsonplaceholder.typicode.com/posts",
-      {
-        params: {
-          // You can add query parameters here, if needed
-        },
-        cancelToken: cancelToken,
-      }
-    );
+    const filter = props.filter;
+    const { page, rowsPerPage, sortBy, descending } = props.pagination;
+    console.log(sortBy, descending);
+    const { data } = await axios.get(`http://localhost:8080/item/search`, {
+      params: {
+        name: filter,
+        page: page - 1,
+        sortBy: sortBy,
+        size: rowsPerPage,
+        sortDirection: descending ? "DESC" : "ASC",
+      },
+    });
+    state.items = data.content;
 
-    state.items = response.data;
+    state.pagination.page = page;
+    state.pagination.sortBy = sortBy;
+    state.pagination.descending = descending;
+    state.pagination.rowsPerPage = rowsPerPage;
+    state.pagination.rowsNumber = data?.totalElements;
   } catch (error) {
     console.error("Error fetching data:", error);
   }
@@ -173,26 +105,31 @@ const searchItems = async (data) => {
 <template>
   <div class="q-pt-md q-px-md">
     <q-card class="">
-      <div class="q-py-sm">
-        <q-input
-          v-model="state.search"
-          label="Search"
-          class=""
-          dense
-          @update:model-value="(text) => searchItems(text)"
-        >
-          <template v-slot:prepend>
-            <q-icon name="search" class="q-pl-md" />
-          </template>
-        </q-input>
-      </div>
       <q-table
+        ref="tableRef"
+        title="Product"
         :rows="state.items"
-        :rows-per-page-options="[10, 20, 30]"
-        v-model:pagination="state.pagination"
+        :rows-per-page-options="[10, 20, 30, 40, 50]"
         :loading="state.loading"
         :columns="state.columns"
-      ></q-table>
+        :filter="state.search"
+        v-model:pagination="state.pagination"
+        @request="searchItems"
+      >
+        <template v-slot:top-right>
+          <q-input
+            borderless
+            dense
+            debounce="500"
+            v-model="state.search"
+            placeholder="Search"
+          >
+            <template v-slot:append>
+              <q-icon name="search" />
+            </template>
+          </q-input>
+        </template>
+      </q-table>
     </q-card>
   </div>
 </template>
